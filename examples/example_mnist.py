@@ -80,9 +80,17 @@ def build(inputs: tf.Tensor, labels: tf.Tensor, classes, optimizer: tf.keras.opt
 # Generic training setup
 # =============================================================================
 
+
+def prep(data):
+    data = data[..., None]
+    data /= 127.5
+    data -= 1.
+    return data
+
+
 # Load data
 (train_x, train_y), (test_x, test_y) = tf.keras.datasets.mnist.load_data(path='mnist.npz')
-train_x, test_x = train_x[..., None], test_x[..., None]
+train_x, test_x = prep(train_x), prep(test_x)
 
 # Create placeholder
 x = tf.placeholder(tf.float32, shape=(None, 28, 28, 1), name="x")
