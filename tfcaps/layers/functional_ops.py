@@ -2,11 +2,15 @@ import tensorflow as tf
 import numpy as np
 import os
 from ..util import force_tuple
+from typing import Union, Tuple, Callable, List
 
 WINDOWS = os.name == 'nt'
 
 
-def new_io(inputs, return_list=False):
+def new_io(
+        inputs: tf.Tensor,
+        return_list=False
+) -> Union[Tuple[Callable, Callable], Tuple[List[tf.Tensor], Callable, Callable]]:
     """
     Constructs simple input/output interface that can store and retrieve values from a list.
     This can be handy for compact code in a TensorFlow model definition.
@@ -21,11 +25,10 @@ def new_io(inputs, return_list=False):
     a = [inputs]
 
     def i(v):
-        if hasattr(v, "call"):
-            if hasattr(v, "inputs") and (v.inputs is None or v.inputs is ...) and callable(v):
-                v = v(o())
-            else:
-                v = v.call()
+        if hasattr(v, "call") and hasattr(v, "inputs") and v.inputs is not None and v.inputs is not ...:
+            v = v.call()
+        elif callable(v):
+            v = v(o())
         return a.append(v)
 
     def o(v=-1):
@@ -36,8 +39,13 @@ def new_io(inputs, return_list=False):
     return i, o
 
 
-def label_mask(inputs: tf.Tensor, y_true: tf.Tensor, y_pred: tf.Tensor = None, training: tf.Tensor = None,
-               flatten: bool = True):
+def label_mask(
+        inputs: tf.Tensor,
+        y_true: tf.Tensor,
+        y_pred: tf.Tensor = None,
+        training: tf.Tensor = None,
+        flatten: bool = True
+) -> tf.Tensor:
     """
     Mask `inputs` with the given label information.
     If the predicted label information `y_pred` is provided along with the bool `training` this op uses the
@@ -73,7 +81,11 @@ def label_mask(inputs: tf.Tensor, y_true: tf.Tensor, y_pred: tf.Tensor = None, t
     return masked
 
 
-def capsule_expand(inputs: tf.Tensor, labels: tf.Tensor, num_capsules: int):
+def capsule_expand(
+        inputs: tf.Tensor,
+        labels: tf.Tensor,
+        num_capsules: int
+) -> tf.Tensor:
     """
     Constructs a Tensor of shape (N, num_capsules, dimensions) where only one of the 'num_capsules' vectors per batch
     element is nonzero, based on 'inputs' of shape (N, dimensions) and 'labels'.
@@ -87,7 +99,7 @@ def capsule_expand(inputs: tf.Tensor, labels: tf.Tensor, num_capsules: int):
     return label_mask(tmp, y_true=labels)
 
 
-def capsule_extract(inputs: tf.Tensor, labels: tf.Tensor):
+def capsule_extract(inputs: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:
     """
     Extract single capsule vector for each element of batch 'inputs'.
     Numpy equivalent: return inputs[range(len(inputs)), labels]
@@ -100,7 +112,13 @@ def capsule_extract(inputs: tf.Tensor, labels: tf.Tensor):
         axis=1))
 
 
-def vary_caps_vector(capsule_vectors: tf.Tensor, start: float, stop: float, delta: float, labels=None):
+def vary_caps_vector(
+        capsule_vectors: tf.Tensor,
+        start: float,
+        stop: float,
+        delta: float,
+        labels=None
+) -> tf.Tensor:
     """
 
     :param capsule_vectors: Tensor (N, 1, dimensions)
@@ -139,7 +157,13 @@ def vary_caps_vector(capsule_vectors: tf.Tensor, start: float, stop: float, delt
         return outputs
 
 
-def length(inputs, axis=-1, keepdims=False, epsilon=1e-10, name=None) -> tf.Tensor:
+def length(
+        inputs: tf.Tensor,
+        axis: int = -1,
+        keepdims: bool = False,
+        epsilon: float = 1e-10,
+        name: str = None
+) -> tf.Tensor:
     """
     Computes the vector length (2-norm) along specified ´axis´ of given Tensor ´inputs´.
     Optionally an epsilon can be added to the squared norm before the square root is computed.
@@ -151,7 +175,11 @@ def length(inputs, axis=-1, keepdims=False, epsilon=1e-10, name=None) -> tf.Tens
             return tf.sqrt(tf.add(tf.reduce_sum(tf.square(inputs), axis=axis, keepdims=keepdims), epsilon))
 
 
-def convert_data_format(inputs: tf.Tensor, data_format, channel_types=1):
+def convert_data_format(
+        inputs: tf.Tensor,
+        data_format: str,
+        channel_types: int = 1
+) -> tf.Tensor:
     """
     This function toggles data_format.
 
@@ -192,7 +220,7 @@ def convert_data_format(inputs: tf.Tensor, data_format, channel_types=1):
     return tf.transpose(inputs, perm=inputs_perm)
 
 
-def flatten(inputs: tf.Tensor, axis=-1):
+def flatten(inputs: tf.Tensor, axis: int = -1) -> tf.Tensor:
     """
     This function flattens any Tensor with shape (batch [, ...], dimensions [, ...]) to
     shape (batch, ?, dimensions) with 'axis!=0'.
@@ -224,7 +252,7 @@ def flatten(inputs: tf.Tensor, axis=-1):
     return tf.reshape(inputs, shape=(batch_size, np.multiply.reduce(intermediates), dimensions))
 
 
-def entropy(pk, axis=0) -> tf.Tensor:
+def entropy(pk: tf.Tensor, axis=0) -> tf.Tensor:
     """
     Compute the entropy of a distribution for given probability values.
     The values given by 'pk' are expected to sum to 1.
@@ -237,7 +265,12 @@ def entropy(pk, axis=0) -> tf.Tensor:
     return -tf.reduce_sum(pk * tf.log(pk), axis=axis)
 
 
-def squash(inputs, axis=-1, epsilon=1e-7, name=None) -> tf.Tensor:
+def squash(
+        inputs: tf.Tensor,
+        axis: int = -1,
+        epsilon: float = 1e-7,
+        name: str = None
+) -> tf.Tensor:
     """
     As described in "Dynamic Routing Between Capsules" (Sabour et al.), Equation 1
     Squash function squashes length (2-norm) of vectors to interval [0, 1]
@@ -252,8 +285,13 @@ def squash(inputs, axis=-1, epsilon=1e-7, name=None) -> tf.Tensor:
         return norm_square / (1. + norm_square) * inputs / tf.sqrt(norm_square + epsilon)
 
 
-def dynamic_routing(u_hat: tf.Tensor, rounds=3, bias: bool = False, name: str = None,
-                    dtype=tf.float32) -> tf.Tensor:
+def dynamic_routing(
+        u_hat: tf.Tensor,
+        rounds: int = 3,
+        bias: bool = False,
+        name: str = None,
+        dtype=tf.float32
+) -> tf.Tensor:
     """
     As described in "Dynamic Routing Between Capsules" (Sabour et al.), Procedure 1: Routing algorithm
     This implementation supports 1D and 2D routing.
@@ -331,8 +369,17 @@ def dynamic_routing(u_hat: tf.Tensor, rounds=3, bias: bool = False, name: str = 
         return tf.squeeze(v, axis=1)  # output shape: (?, capsules_out, dimensions_out[, height, width])
 
 
-def _u_hat_conv2d_light(inputs, kernel_size, strides, padding, bias, types_out, dimensions_out,
-                        name, **conv2d_kwargs):
+def _u_hat_conv2d_light(
+        inputs: tf.Tensor,
+        kernel_size: Union[int, tuple, list],
+        strides: Union[int, tuple, list],
+        padding: str,
+        bias: bool,
+        types_out: int,
+        dimensions_out: int,
+        name: str,
+        **conv2d_kwargs
+) -> tf.Tensor:
     """
 
     :param inputs:
@@ -388,8 +435,17 @@ def _u_hat_conv2d_light(inputs, kernel_size, strides, padding, bias, types_out, 
     return u_hat
 
 
-def _u_hat_conv2d_light_alt(inputs, kernel_size, strides, padding, bias, types_out,
-                            dimensions_out, name, **conv2d_kwargs):
+def _u_hat_conv2d_light_alt(
+        inputs: tf.Tensor,
+        kernel_size: Union[int, tuple, list],
+        strides: Union[int, tuple, list],
+        padding: str,
+        bias: bool,
+        types_out: int,
+        dimensions_out: int,
+        name: str,
+        **conv2d_kwargs
+) -> tf.Tensor:
     """
 
     :param inputs:
@@ -457,83 +513,55 @@ def _u_hat_conv2d_light_alt(inputs, kernel_size, strides, padding, bias, types_o
     return u_hat
 
 
-def _u_hat_dense(inputs, capsules_in, dimensions_in, capsules_out, dimensions_out, weights=None, initializer=None,
-                 nested=False, parallel_iterations=10, swap_memory=False, dtype=tf.float32):
+def _u_hat_dense(
+        inputs,
+        capsules_out,
+        dimensions_out=None,
+        weights=None,
+        initializer=None,
+        dtype: tf.DType = tf.float32
+) -> tf.Tensor:
+    """
+    This method returns a tensor that contains all u_hat values.
+    :param inputs: Input Tensor. Shape: (N, capsules_in, dimensions_in)
+    :param capsules_out: Number of output capsules. Must be set if `weights` and `initializer` are not provided.
+    :param dimensions_out: Number of dimensions per output capsule.
+    :param weights: (optional) Weights for this operation.
+                    Shape: (capsules_out, capsules_in, dimensions_out, dimensions_in)
+    :param initializer: (optional) Initializer for the weight variable if one is created. Can either be
+                        an initializer object or a Tensor. If it's a Tensor, its shape must be known.
+                        Only used if `weights` is None.
+    :param dtype: Desired data type
+    :return:
+    """
+    ts = tf.shape(inputs)
+    batch, capsules_in, dimensions_in = (ts[i] for i in range(3))
+
     if weights is None:
         if initializer is None:
+            if dimensions_out is None:
+                ValueError("`dimensions_out` must be set if `weights` and `initializer` are not provided.")
             initializer = tf.random_normal(
                 shape=(capsules_out, capsules_in, dimensions_out, dimensions_in),
                 stddev=.1,
                 dtype=dtype,
                 name="W_rand_normal"
             )
-            weights = tf.get_variable(initializer=initializer, name="W", trainable=True)
-
-    if nested:
-        return _u_hat_dense_nested(inputs, weights=weights, parallel_iterations=parallel_iterations,
-                                   swap_memory=swap_memory)
+        weights = tf.get_variable(initializer=initializer, name="W", trainable=True)
     else:
-        return _u_hat_dense_dist(inputs, weights=weights, capsules_out=capsules_out,
-                                 parallel_iterations=parallel_iterations, swap_memory=swap_memory)
+        dimensions_out = weights.shape[-2]
 
+    # Inputs (N, ci, di) -> (N, co, ci, di, 1)
+    inputs = tf.expand_dims(tf.expand_dims(inputs, axis=-2), axis=1)  # (N, ci, di) -> (N, 1, ci, 1, di)
+    inputs = tf.broadcast_to(inputs, shape=tf.stack([batch, capsules_out, capsules_in, dimensions_out, dimensions_in]))
 
-def _u_hat_dense_dist(inputs, weights, capsules_out, parallel_iterations=10, swap_memory=False):
-    """
-    This method returns a tensor that contains all u_hat values.
+    # Weights (co, ci, do, di) -> (N, co, ci, do, di)
+    weights = tf.broadcast_to(weights,
+                              shape=tf.stack([batch, capsules_out, capsules_in, dimensions_out, dimensions_in]))
 
-    Comment on the implementation:
-        Note that TensorFlow does not support broadcasting in this particular case at this point in time.
-        This method is essentially a compromise between memory overhead due to manual
-        broadcasting and parallelization via tf.map_fn.
-    :param inputs:
-    :param weights:
-    :param capsules_out:
-    :param parallel_iterations: The number of iterations that run in parallel.
-    :param swap_memory: (optional) True enables GPU-CPU memory swapping.
-    :return: Tensor with shape: (N, num_capsules_in, num_capsules_out, num_dimensions_out)
-    """
-    # get input shape from (N, num_capsules_in, num_dimensions_out) to
-    # (N, capsules_out, capsules_in, dimensions_out, 1) by tiling
-    inputs_tiled = tf.tile(
-        input=tf.expand_dims(tf.expand_dims(inputs, axis=-1), axis=1),
-        multiples=[1, capsules_out, 1, 1, 1]
-    )
+    # Matmul (N, co, ci, do, di) -> (N, co, ci, do)
+    result = tf.reduce_sum(weights * inputs, axis=-1)
 
-    # Apply W to every tensor in current batch
-    return tf.squeeze(
-        tf.transpose(tf.map_fn(lambda x: tf.matmul(weights, x), inputs_tiled, parallel_iterations=parallel_iterations,
-                               swap_memory=swap_memory),
-                     perm=(0, 2, 1, 3, 4)),
-        axis=-1
-    )
-
-
-def _u_hat_dense_nested(inputs, weights, parallel_iterations=10, swap_memory=False):
-    """
-    This method returns a tensor that contains all u_hat values.
-
-    Comment on the implementation:
-        Note that TensorFlow does not support broadcasting in this particular case at this point in time.
-        This method uses nested tf.map_fn to offer high potential for
-        parallelization and avoids manual broadcasting entirely.
-        Use with caution, not all machines are able to handle this. It may cause bottlenecking.
-    :param inputs:
-    :param weights:
-    :param parallel_iterations: The number of iterations that run in parallel. NOTE: The actual deployed number is
-                                defined as: int(sqrt(parallel_iterations))**2
-    :param swap_memory: (optional) True enables GPU-CPU memory swapping.
-    :return: Tensor with shape: (N, num_capsules_in, num_capsules_out, num_dimensions_out)
-    """
-    parallel_iterations = int(np.sqrt(parallel_iterations))
-
-    # get input shape from (N, num_capsules_in, num_dimensions_out) to (N, num_capsules_in, num_dimensions_out, 1)
-    inputs_ = tf.expand_dims(inputs, axis=-1)
-
-    # Apply every w with shape (vec_len_outputs, vec_len_inputs) to every x with shape (len_vectors, 1)
-    return tf.squeeze(
-        tf.transpose(tf.map_fn(
-            lambda x: tf.map_fn(lambda w: tf.matmul(w, x), weights, parallel_iterations=parallel_iterations,
-                                swap_memory=swap_memory), inputs_, parallel_iterations=parallel_iterations,
-            swap_memory=swap_memory), perm=(0, 2, 1, 3, 4)),
-        axis=-1
-    )
+    # Transpose (N, co, ci, do) -> (N, ci, co, do)
+    result_transposed = tf.transpose(result, perm=(0, 2, 1, 3))
+    return result_transposed

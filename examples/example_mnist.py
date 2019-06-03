@@ -114,8 +114,8 @@ for step in range(le):
         y: train_y[j:j + batch_size],
     }
     _, l, a, cp, fp = sess.run([train_op, loss, accuracy, correct_predictions, false_predictions], feed_dict)
-    if (step+1) % 50 == 0 or step == (le - 1):
-        print((step+1), "of", le, "Loss:", l, "Accuracy:", a, "Correct:", cp, "False:", fp, " " * 42, end="\r")
+    if (step + 1) % 50 == 0 or step == (le - 1):
+        print((step + 1), "of", le, "Loss:", l, "Accuracy:", a, "Correct:", cp, "False:", fp, " " * 42, end="\r")
 
 # Test model
 feed_dict = {

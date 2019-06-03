@@ -194,7 +194,7 @@ class DenseCapsule(Layer):
         self.swap_memory = swap_memory
         self.num_inputs, self.vec_len_inputs = None, None  # retrieved from self.inputs later on
 
-    def single_capsule_only(self):
+    def single_capsule_only(self) -> tf.Tensor:
         """
         Special case: Layer outputs a single capsule. Routing is effectively useless in this case, so it is omitted.
         Input Tensor 'self.inputs' of shape (batch, capsules', dimensions')
@@ -218,10 +218,8 @@ class DenseCapsule(Layer):
             self.num_inputs, self.vec_len_inputs = self.inputs.shape.as_list()[1:3]
             with tf.variable_scope("caps" if self.name is None else self.name):
                 return ops.dynamic_routing(
-                    ops._u_hat_dense(self.inputs, capsules_in=self.num_inputs, dimensions_in=self.vec_len_inputs,
-                                     capsules_out=self.capsules, dimensions_out=self.dimensions,
-                                     nested=False, initializer=self.initializer,
-                                     parallel_iterations=self.parallel_iterations, swap_memory=self.swap_memory),
+                    ops._u_hat_dense(self.inputs, capsules_out=self.capsules, dimensions_out=self.dimensions,
+                                     initializer=self.initializer),
                     rounds=self.routing, name=self.name)
 
 
